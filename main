@@ -1,0 +1,2 @@
+total_simulation_time = int(input("How long do you want the simulation to be(ms): "))#milliseconds?
+injury_damage = #percent?

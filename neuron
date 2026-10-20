@@ -1,0 +1,31 @@
+import numpy as np
+
+inside_voltage = -65 #millivolts
+#action_potential = button to press
+sodium_channel_state = 0 #0 = closed, 1 = open, 2 = inactivated
+potassium_channel_open = False
+potassium_leakage = True
+sodium_potassium_pump = True
+action_potential = False
+
+if inside_voltage >= -55 and inside_voltage <= 30:
+    sodium_channel_state = 1
+if inside_voltage >= 30 and inside_voltage <= 50:
+    potassium_channel_open = True
+if inside_voltage>= -55: 
+    # have a variable for the current inside_voltage, and have a variable for the past inside_voltage, during the simulation whenever you update 
+    # set past inside voltage BEFORE you change the current inside voltage. Then change the inside_voltage. then check if the past inside voltage
+    # was equal to -65 AND if the current inside voltage is equal to -55, if so, set action potential to true.
+    action_potential = True
+
+
+if action_potential == True:
+    if inside_voltage == 30:
+        sodium_channel_state = 2
+        action_potential = False
+    if inside_voltage == -70:
+        sodium_channel_state = 0
+        action_potential = False
+
+def sodium_gate_open_interval():
+    sodium_flow = 
