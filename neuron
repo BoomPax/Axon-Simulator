@@ -1,31 +1,97 @@
 import numpy as np
-
-inside_voltage = -65 #millivolts
-#action_potential = button to press
-sodium_channel_state = 0 #0 = closed, 1 = open, 2 = inactivated
-potassium_channel_open = False
-potassium_leakage = True
-sodium_potassium_pump = True
-action_potential = False
-
-if inside_voltage >= -55 and inside_voltage <= 30:
-    sodium_channel_state = 1
-if inside_voltage >= 30 and inside_voltage <= 50:
-    potassium_channel_open = True
-if inside_voltage>= -55: 
-    # have a variable for the current inside_voltage, and have a variable for the past inside_voltage, during the simulation whenever you update 
-    # set past inside voltage BEFORE you change the current inside voltage. Then change the inside_voltage. then check if the past inside voltage
-    # was equal to -65 AND if the current inside voltage is equal to -55, if so, set action potential to true.
-    action_potential = True
+import matplotlib.pyplot as plt
 
 
-if action_potential == True:
-    if inside_voltage == 30:
-        sodium_channel_state = 2
-        action_potential = False
-    if inside_voltage == -70:
-        sodium_channel_state = 0
-        action_potential = False
+# Constants (Hodgkin-Huxley values such that rest is about -65mV)
 
-def sodium_gate_open_interval():
-    sodium_flow = 
+# Capacitance of membrane (how quickly voltage can change)
+C_m = 1
+
+# Conductances of ion channels (how many ions can flow through)
+na_g = 120
+k_g = 36
+l_g = 0.3
+
+# Reversal potentials of ion channels
+# (the voltage at which no net flow occurs)
+na_r = 50
+k_r = -77
+l_r = -54.387
+
+voltage_rest = -65
+
+
+# Alpha is how fast gates open, beta is how fast gates close
+def gate_rates(voltage):
+    # Sodium activation (m), sodium inactivation (h),
+    # potassium activation (n)
+    alpha_m = (
+        (0.1 * (voltage + 40))
+        / (1 - np.exp(-(voltage + 40) / 10))
+    )
+    beta_m = 4 * np.exp(-(voltage + 65) / 18)
+
+    alpha_h = 0.07 * np.exp(-(voltage + 65) / 20)
+    beta_h = 1 / (1 + np.exp(-(voltage + 35) / 10))
+
+    alpha_n = (
+        (0.01 * (voltage + 55))
+        / (1 - np.exp(-(voltage + 55) / 10))
+    )
+    beta_n = 0.125 * np.exp(-(voltage + 65) / 80)
+
+    return alpha_m, beta_m, alpha_h, beta_h, alpha_n, beta_n
+
+
+# Establish how many channels there are to determine max conductance
+# We need max conductance to find current conductance
+# <- this makes sense in her head in a way
+def ionic_currents(voltage, m, h, n):
+    # Calculate conductances based on gating variables
+    g_na = na_g * (m ** 3) * h
+    g_k = k_g * (n ** 4)
+    g_l = l_g
+
+    # Calculate currents based on conductances and reversal potentials
+    i_na = g_na * (voltage - na_r)
+    i_k = g_k * (voltage - k_r)
+    i_l = g_l * (voltage - l_r)
+
+    return i_na, i_k, i_l
+
+
+# Estimate what state will be a moment later by calculating
+# how fast something is changing right now
+# New value = old value + rate of change * time interval (0.01ms)
+def update_gates(voltage, m, h, n, dt):
+    alpha_m, beta_m, alpha_h, beta_h, alpha_n, beta_n = gate_rates(voltage)
+
+    dm_dt = alpha_m * (1 - m) - beta_m * m
+    dh_dt = alpha_h * (1 - h) - beta_h * h
+    dn_dt = alpha_n * (1 - n) - beta_n * n
+
+    m += dm_dt * dt
+    h += dh_dt * dt
+    n += dn_dt * dt
+
+    return m, h, n
+
+
+# In milliseconds
+def simulate_neuron(duration=50, dt=0.01):
+    time_points = np.arange(0, duration, dt)
+    voltages = np.zeros_like(time_points)
+
+    voltage = voltage_rest  # Resting potential in mV
+
+    ms = np.zeros_like(time_points)  # Sodium activation gating variable
+    hs = np.zeros_like(time_points)  # Sodium inactivation gating variable
+    ns = np.zeros_like(time_points)  # Potassium activation gating variable
+
+    # Starting values: voltage -65mV, voltage_rest, resting state of the gates
+
+    # Create a loop to progress neuron action potential
+    # Current state, develop and add onto current state with each time interval
+    # Concussion factor of leak conductance
+    # Return values for graph, repeat
+    # g
