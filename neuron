@@ -1,97 +1,119 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+#Constants (Hodgkin-Huxley values such that rest is about -65mV)
 
-# Constants (Hodgkin-Huxley values such that rest is about -65mV)
-
-# Capacitance of membrane (how quickly voltage can change)
+#capacitance of membrane (how quickly voltage can change)
 C_m = 1
-
-# Conductances of ion channels (how many ions can flow through)
+#conductances of ion channels (how many ions can flow through)
 na_g = 120
 k_g = 36
 l_g = 0.3
-
-# Reversal potentials of ion channels
-# (the voltage at which no net flow occurs)
+#reversal potentials of ion channels (the voltage at which no net flow occurs)
 na_r = 50
 k_r = -77
 l_r = -54.387
 
 voltage_rest = -65
 
+#alpha is how fast gates open, beta is how fast gates close
 
-# Alpha is how fast gates open, beta is how fast gates close
 def gate_rates(voltage):
-    # Sodium activation (m), sodium inactivation (h),
-    # potassium activation (n)
-    alpha_m = (
-        (0.1 * (voltage + 40))
-        / (1 - np.exp(-(voltage + 40) / 10))
-    )
+    #sodium activation (m), sodium inactivation (h), potassium activation (n)
+    alpha_m = (0.1 * (voltage + 40)) / (1 - np.exp(-(voltage + 40) / 10))
     beta_m = 4 * np.exp(-(voltage + 65) / 18)
-
     alpha_h = 0.07 * np.exp(-(voltage + 65) / 20)
     beta_h = 1 / (1 + np.exp(-(voltage + 35) / 10))
-
-    alpha_n = (
-        (0.01 * (voltage + 55))
-        / (1 - np.exp(-(voltage + 55) / 10))
-    )
+    alpha_n = (0.01 * (voltage + 55)) / (1 - np.exp(-(voltage + 55) / 10))
     beta_n = 0.125 * np.exp(-(voltage + 65) / 80)
-
+    
     return alpha_m, beta_m, alpha_h, beta_h, alpha_n, beta_n
 
+#establish how many channels there are to determine max conductance
+#we need max conductance to find current conductance <- this makes sense in her head in a way
 
-# Establish how many channels there are to determine max conductance
-# We need max conductance to find current conductance
-# <- this makes sense in her head in a way
 def ionic_currents(voltage, m, h, n):
-    # Calculate conductances based on gating variables
+    #calculate conductances based on gating variables
     g_na = na_g * (m ** 3) * h
     g_k = k_g * (n ** 4)
     g_l = l_g
-
-    # Calculate currents based on conductances and reversal potentials
+    
+    #calculate currents based on conductances and reversal potentials
     i_na = g_na * (voltage - na_r)
     i_k = g_k * (voltage - k_r)
     i_l = g_l * (voltage - l_r)
-
+    
     return i_na, i_k, i_l
 
+#estimate what state will be a moment later by calculating how fast something is changing right now
+# new value = old value + rate of change * time interval (0.01ms)
 
-# Estimate what state will be a moment later by calculating
-# how fast something is changing right now
-# New value = old value + rate of change * time interval (0.01ms)
 def update_gates(voltage, m, h, n, dt):
     alpha_m, beta_m, alpha_h, beta_h, alpha_n, beta_n = gate_rates(voltage)
-
+    
     dm_dt = alpha_m * (1 - m) - beta_m * m
     dh_dt = alpha_h * (1 - h) - beta_h * h
     dn_dt = alpha_n * (1 - n) - beta_n * n
-
+    
     m += dm_dt * dt
     h += dh_dt * dt
     n += dn_dt * dt
-
+    
     return m, h, n
 
 
-# In milliseconds
+
+# in milliseconds
 def simulate_neuron(duration=50, dt=0.01):
     time_points = np.arange(0, duration, dt)
     voltages = np.zeros_like(time_points)
-
-    voltage = voltage_rest  # Resting potential in mV
-
+    voltage = voltage_rest  # Resting potential in mV'
     ms = np.zeros_like(time_points)  # Sodium activation gating variable
     hs = np.zeros_like(time_points)  # Sodium inactivation gating variable
     ns = np.zeros_like(time_points)  # Potassium activation gating variable
+    
+    alpha_m, beta_m, alpha_h, beta_h, alpha_n, beta_n = gate_rates(voltage)
 
-    # Starting values: voltage -65mV, voltage_rest, resting state of the gates
+    m = alpha_m / (alpha_m + beta_m)
+    h = alpha_h / (alpha_h + beta_h)
+    n = alpha_n / (alpha_n + beta_n)
 
-    # Create a loop to progress neuron action potential
-    # Current state, develop and add onto current state with each time interval
-    # Concussion factor of leak conductance
-    # Return values for graph, repeat
-    # g
+    for index, time in enumerate(time_points):
+        #grab current state of the neuron
+        voltages[index] = voltage
+        ms[index] = m
+        hs[index] = h
+        ns[index] = n
+
+
+        stimulus = 10 if 5 <= time < 6 else 0
+
+        #Calculate currents based on current voltage and gating variables
+        i_na, i_k, i_l = ionic_currents(voltage, m, h, n)
+        
+        # Total current is the sum of ionic currents
+        total_current = i_na + i_k + i_l
+        
+        # Update voltage based on total current and membrane capacitance
+        dv_dt = (stimulus - total_current) / C_m
+       
+        
+        # Update gating variables
+        m, h, n = update_gates(voltage, m, h, n, dt)
+        
+        voltage += dv_dt * dt
+    
+    return time_points, voltages, ms, hs, ns
+
+
+        
+
+
+
+    
+
+
+    
+    
+    
+
