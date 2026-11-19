@@ -32,17 +32,14 @@ def gate_rates(voltage):
 #establish how many channels there are to determine max conductance
 #we need max conductance to find current conductance <- this makes sense in her head in a way
 
-def ionic_currents(voltage, m, h, n):
-    #calculate conductances based on gating variables
-    g_na = na_g * (m ** 3) * h
-    g_k = k_g * (n ** 4)
-    g_l = l_g
-    
-    #calculate currents based on conductances and reversal potentials
+def ionic_currents(voltage, m, h, n, g_na_max, g_k_max, g_leak):
+    g_na = g_na_max * (m ** 3) * h
+    g_k = g_k_max * (n ** 4)
+
     i_na = g_na * (voltage - na_r)
     i_k = g_k * (voltage - k_r)
-    i_l = g_l * (voltage - l_r)
-    
+    i_l = g_leak * (voltage - l_r)
+
     return i_na, i_k, i_l
 
 #estimate what state will be a moment later by calculating how fast something is changing right now
@@ -64,12 +61,19 @@ def update_gates(voltage, m, h, n, dt):
 
 
 # in milliseconds
-def simulate_neuron(duration=50, dt=0.01):
+def simulate_neuron(duration=50, dt=0.01, fire=False, severity=0, myelination=False):
+    # Concussion: fewer working sodium channels, leakier membrane
+    g_na_max = na_g * (1 - 0.07 * severity)   # severity 10 -> 30% of normal
+    g_leak = l_g * (1 + 0.5 * severity)       # severity 10 -> 6x normal leak
+
+    # Myelination: insulation lowers effective capacitance
+    
+
     time_points = np.arange(0, duration, dt)
     voltages = np.zeros_like(time_points)
     voltage = voltage_rest  # Resting potential in mV'
     ms = np.zeros_like(time_points)  # Sodium activation gating variable
-    hs = np.zeros_like(time_points)  # Sodium inactivation gating variable
+    hs = np.zeros_like(time_points)  # Sodium ivation gating variable
     ns = np.zeros_like(time_points)  # Potassium activation gating variable
     
     alpha_m, beta_m, alpha_h, beta_h, alpha_n, beta_n = gate_rates(voltage)
@@ -86,15 +90,18 @@ def simulate_neuron(duration=50, dt=0.01):
         ns[index] = n
 
 
-        stimulus = 10 if 5 <= time < 6 else 0
 
         #Calculate currents based on current voltage and gating variables
-        i_na, i_k, i_l = ionic_currents(voltage, m, h, n)
+        i_na, i_k, i_l = ionic_currents(voltage, m, h, n, g_na_max, k_g, g_leak)
         
         # Total current is the sum of ionic currents
         total_current = i_na + i_k + i_l
-        
+
+        stimulus = 0
         # Update voltage based on total current and membrane capacitance
+        if fire and time < 1:
+            stimulus = 10
+
         dv_dt = (stimulus - total_current) / C_m
        
         
@@ -107,8 +114,6 @@ def simulate_neuron(duration=50, dt=0.01):
 
 
         
-
-
 
     
 
